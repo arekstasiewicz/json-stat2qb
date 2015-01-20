@@ -3,7 +3,7 @@ package org.deri.jsonstat2qb.jsonstat;
 import net.hamnaberg.funclite.FunctionalList;
 import net.hamnaberg.funclite.Optional;
 import net.hamnaberg.funclite.Predicate;
-import net.hamnaberg.jsonstat.parser.JacksonStatParser;
+import org.deri.jsonstat2qb.jsonstat.parser.JacksonStatParser;
 
 import java.io.IOException;
 import java.io.InputStream;

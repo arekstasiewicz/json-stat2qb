@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import net.hamnaberg.funclite.CollectionOps;
 import net.hamnaberg.funclite.Optional;
-import net.hamnaberg.jsonstat.*;
+import org.deri.jsonstat2qb.jsonstat.*;
 import org.joda.time.DateTime;
 
 import java.io.IOException;

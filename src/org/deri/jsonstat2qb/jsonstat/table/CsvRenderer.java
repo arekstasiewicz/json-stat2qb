@@ -1,6 +1,6 @@
 package org.deri.jsonstat2qb.jsonstat.table;
 
-import net.hamnaberg.jsonstat.Data;
+import org.deri.jsonstat2qb.jsonstat.Data;
 
 import java.util.List;
 

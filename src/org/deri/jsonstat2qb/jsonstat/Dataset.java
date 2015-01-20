@@ -4,7 +4,7 @@ import net.hamnaberg.funclite.CollectionOps;
 import net.hamnaberg.funclite.Function;
 import net.hamnaberg.funclite.FunctionalList;
 import net.hamnaberg.funclite.Optional;
-import net.hamnaberg.jsonstat.util.IntCartesianProduct;
+import org.deri.jsonstat2qb.jsonstat.util.IntCartesianProduct;
 import org.joda.time.DateTime;
 
 import java.util.*;

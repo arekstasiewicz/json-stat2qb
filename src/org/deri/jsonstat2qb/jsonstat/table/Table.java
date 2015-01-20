@@ -2,11 +2,11 @@ package org.deri.jsonstat2qb.jsonstat.table;
 
 import net.hamnaberg.funclite.CollectionOps;
 import net.hamnaberg.funclite.Optional;
-import net.hamnaberg.jsonstat.Category;
-import net.hamnaberg.jsonstat.Data;
-import net.hamnaberg.jsonstat.Dataset;
-import net.hamnaberg.jsonstat.Dimension;
-import net.hamnaberg.jsonstat.util.IntCartesianProduct;
+import org.deri.jsonstat2qb.jsonstat.Category;
+import org.deri.jsonstat2qb.jsonstat.Data;
+import org.deri.jsonstat2qb.jsonstat.Dataset;
+import org.deri.jsonstat2qb.jsonstat.Dimension;
+import org.deri.jsonstat2qb.jsonstat.util.IntCartesianProduct;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -14,8 +14,8 @@ import java.util.Collections;
 import java.util.List;
 
 import static net.hamnaberg.funclite.Optional.some;
-import static net.hamnaberg.jsonstat.util.CollectionUtils.join;
-import static net.hamnaberg.jsonstat.util.CollectionUtils.product;
+import static org.deri.jsonstat2qb.jsonstat.util.CollectionUtils.join;
+import static org.deri.jsonstat2qb.jsonstat.util.CollectionUtils.product;
 
 public final class Table {
     private Optional<String> title;

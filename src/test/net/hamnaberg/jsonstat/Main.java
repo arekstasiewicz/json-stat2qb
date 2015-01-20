@@ -1,9 +1,13 @@
-package net.hamnaberg.jsonstat;
+package test.net.hamnaberg.jsonstat;
 
 import net.hamnaberg.funclite.Optional;
-import net.hamnaberg.jsonstat.parser.JacksonStatParser;
-import net.hamnaberg.jsonstat.table.CsvRenderer;
-import net.hamnaberg.jsonstat.table.Table;
+
+import org.deri.jsonstat2qb.jsonstat.Data;
+import org.deri.jsonstat2qb.jsonstat.Dataset;
+import org.deri.jsonstat2qb.jsonstat.Stat;
+import org.deri.jsonstat2qb.jsonstat.parser.JacksonStatParser;
+import org.deri.jsonstat2qb.jsonstat.table.CsvRenderer;
+import org.deri.jsonstat2qb.jsonstat.table.Table;
 
 import java.io.FileInputStream;
 import java.io.IOException;
