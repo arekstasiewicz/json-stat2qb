@@ -52,7 +52,7 @@
 		<configuration>
 			<archive>
 				<manifest>
-					<mainClass>org.deri.jsonstat2qb.Main</mainClass>
+					<mainClass>org.deri.jsonstat2qb.jsonstat2qb</mainClass>
 				</manifest>
 			</archive>
 		</configuration>
