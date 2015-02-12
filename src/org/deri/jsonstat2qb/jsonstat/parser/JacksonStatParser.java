@@ -13,7 +13,9 @@ import org.joda.time.DateTime;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.text.DateFormat;
 import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.*;
 
 public class JacksonStatParser {
@@ -66,9 +68,23 @@ public class JacksonStatParser {
 				// wrong format - leave empty
 			} catch (IllegalArgumentException e) {
 				// wrong format - leave empty
+
+				// TEMP - one more try - dd/MM/yyyy hh:mm:ss aa
+				String cso_format = "dd/MM/yyyy HH:mm:ss aa";
+				DateFormat cso_df = new SimpleDateFormat(
+						cso_format, Locale.ENGLISH);
+
+				Date result = null;
+				
+				try {
+					result = cso_df.parse(dateset_updated);
+					updated = Optional.some(new DateTime(result));
+				} catch (ParseException e1) {
+					// wrong format - leave empty
+				}				
 			}
 
-        }
+		}
 
         if (node.hasNonNull("value")) {
             for(JsonNode v : node.get("value")) {
