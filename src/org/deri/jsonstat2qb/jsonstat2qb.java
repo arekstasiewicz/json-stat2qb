@@ -1,11 +1,8 @@
 package org.deri.jsonstat2qb;
 
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.UnsupportedEncodingException;
 import java.net.JarURLConnection;
 import java.net.URL;
 import java.util.List;
@@ -16,10 +13,9 @@ import net.hamnaberg.funclite.Optional;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 import org.deri.jsonstat2qb.jsonstat.Dataset;
+import org.deri.jsonstat2qb.jsonstat.Dimension;
 import org.deri.jsonstat2qb.jsonstat.Stat;
 import org.deri.jsonstat2qb.jsonstat.parser.JacksonStatParser;
-import org.deri.jsonstat2qb.jsonstat.table.CsvRenderer;
-import org.deri.jsonstat2qb.jsonstat.table.Table;
 
 import arq.cmdline.ArgDecl;
 import arq.cmdline.CmdGeneral;
@@ -29,6 +25,8 @@ import com.hp.hpl.jena.sparql.util.Utils;
 import com.hp.hpl.jena.util.FileManager;
 
 public class jsonstat2qb extends CmdGeneral {
+	
+	private final static Logger log = Logger.getLogger(jsonstat2qb.class);
 	
 	// --version info
 	public static final String VERSION;
@@ -108,16 +106,33 @@ public class jsonstat2qb extends CmdGeneral {
 		try {
 			
 			if (encoding != null) {
-				// TODO debug only
-				System.out.println(encoding);
+				if (log.isDebugEnabled()) {
+					log.debug("Encoding: " + encoding);
+				}
+			}
+
+			if (log.isDebugEnabled()) {
+				log.debug("Dataset: " + datasetUrl);
 			}
 
 			InputStream input = open(datasetUrl);
 			Stat stat = new JacksonStatParser().parse(input);
-			
+
 			Optional<Dataset> dataset = stat.getDataset(0);
-			
-			processResults();
+
+	        for (Dataset ds: dataset) {
+
+				if (log.isDebugEnabled()) {
+					log.debug("ds.size() = " + ds.size());
+					List<Dimension> dimensions = ds.getDimensions();
+					for (Dimension dimension : dimensions) {
+						log.debug("dimension label: " +  dimension.getLabel().get() );
+					}
+				}
+
+				processResults( dataset );
+
+	        }
 			
 		} catch (NotFoundException ex) {
 			cmdError("Not found: " + ex.getMessage());
@@ -153,7 +168,7 @@ public class jsonstat2qb extends CmdGeneral {
 		}
 	}
 
-	private void processResults() {
+	private void processResults(Optional<Dataset> dataset) {
 		
 	}
 
