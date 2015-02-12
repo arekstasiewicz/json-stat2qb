@@ -3,13 +3,17 @@ package org.deri.jsonstat2qb.jsonstat.parser;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.util.ISO8601DateFormat;
+
 import net.hamnaberg.funclite.CollectionOps;
 import net.hamnaberg.funclite.Optional;
+
 import org.deri.jsonstat2qb.jsonstat.*;
 import org.joda.time.DateTime;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.text.ParseException;
 import java.util.*;
 
 public class JacksonStatParser {
@@ -50,7 +54,20 @@ public class JacksonStatParser {
             label = Optional.fromNullable(node.get("label").asText());
         }
         if (node.hasNonNull("updated")) {
-            updated = Optional.some(DateTime.parse(node.get("updated").asText()));
+        	// check date format to avoid errors - expect ISO 8601
+        	ISO8601DateFormat df = new ISO8601DateFormat();
+        	String dateset_updated = node.get("updated").asText();
+
+        	try {
+				Date d = df.parse(dateset_updated);
+				updated = Optional.some(new DateTime(d));
+				
+			} catch (ParseException e) {
+				// wrong format - leave empty
+			} catch (IllegalArgumentException e) {
+				// wrong format - leave empty
+			}
+
         }
 
         if (node.hasNonNull("value")) {
