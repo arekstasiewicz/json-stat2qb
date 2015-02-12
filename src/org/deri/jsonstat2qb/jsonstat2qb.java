@@ -1,18 +1,32 @@
 package org.deri.jsonstat2qb;
 
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.UnsupportedEncodingException;
 import java.net.JarURLConnection;
 import java.net.URL;
+import java.util.List;
 import java.util.jar.Manifest;
+
+import net.hamnaberg.funclite.Optional;
 
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
+import org.deri.jsonstat2qb.jsonstat.Dataset;
+import org.deri.jsonstat2qb.jsonstat.Stat;
+import org.deri.jsonstat2qb.jsonstat.parser.JacksonStatParser;
+import org.deri.jsonstat2qb.jsonstat.table.CsvRenderer;
+import org.deri.jsonstat2qb.jsonstat.table.Table;
 
 import arq.cmdline.ArgDecl;
 import arq.cmdline.CmdGeneral;
 
 import com.hp.hpl.jena.shared.NotFoundException;
 import com.hp.hpl.jena.sparql.util.Utils;
+import com.hp.hpl.jena.util.FileManager;
 
 public class jsonstat2qb extends CmdGeneral {
 	
@@ -63,7 +77,7 @@ public class jsonstat2qb extends CmdGeneral {
 
 	@Override
 	protected String getSummary() {
-		return getCommandName() + " datasetUrl [options]";
+		return getCommandName() + " [options] datasetUrl";
 	}
 
 	@Override
@@ -92,12 +106,34 @@ public class jsonstat2qb extends CmdGeneral {
 	protected void exec() {
 		initLogging();
 		try {
+			
 			if (encoding != null) {
+				// TODO debug only
 				System.out.println(encoding);
 			}
+
+			InputStream input = open(datasetUrl);
+			Stat stat = new JacksonStatParser().parse(input);
+			
+			Optional<Dataset> dataset = stat.getDataset(0);
+			
+			processResults();
+			
 		} catch (NotFoundException ex) {
 			cmdError("Not found: " + ex.getMessage());
+		} catch (FileNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
 		}
+	}
+
+	private InputStream open(String datasetUrl) {
+		InputStream in = FileManager.get().open(datasetUrl);
+		if (in == null) throw new NotFoundException(datasetUrl);
+		return in;
 	}
 
 	@Override
@@ -115,6 +151,10 @@ public class jsonstat2qb extends CmdGeneral {
 		if (isDebug()) {
 			Logger.getLogger("org.deri.jsonstat2qb").setLevel(Level.DEBUG);
 		}
+	}
+
+	private void processResults() {
+		
 	}
 
 }
