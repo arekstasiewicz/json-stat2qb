@@ -11,7 +11,7 @@ public class JSONSTAT {
         return uri;
     }
     
-    protected static final String uri = "http://json-state.org/json-stat#";
+    protected static final String uri = "http://json-stat.org/json-stat#";
 
     private static Model m = ModelFactory.createDefaultModel();
 
