@@ -183,6 +183,7 @@ public class jsonstat2qb extends CmdGeneral {
         model.setNsPrefix("json-stat", JSONSTAT.getURI());
 
         Resource resource = model.createResource();
+
         resource.addProperty(RDF.type, JSONSTAT.Dataset);
         resource.addProperty(RDFS.label, model.createLiteral(dataset.getLabel().get()));
 
@@ -200,17 +201,22 @@ public class jsonstat2qb extends CmdGeneral {
                 index.addProperty(RDF.type, JSONSTAT.KeyValue);
                 index.addProperty(JSONSTAT.key, model.createLiteral(value));
                 index.addProperty(JSONSTAT.value, model.createTypedLiteral(cat.getIndex(value)));
-                 dimension.addProperty(JSONSTAT.indexs, index);
+                dimension.addProperty(JSONSTAT.indexs, index);
                 Resource label = model.createResource();
                 label.addProperty(RDF.type, JSONSTAT.KeyValue);
                 label.addProperty(JSONSTAT.key, model.createLiteral(value));
                 label.addProperty(JSONSTAT.value, model.createTypedLiteral(cat.getLabel(value).get()));
-                 dimension.addProperty(JSONSTAT.labels, label);
+                dimension.addProperty(JSONSTAT.labels, label);
             }
 
             resource.addProperty(JSONSTAT.dimensions, dimension);
         }
-        model.write(System.out, "RDF/XML-ABBREV");
+
+        if (writeNTriples){
+        	model.write(System.out, "N-Triples");
+        } else {
+        	model.write(System.out, "RDF/XML-ABBREV");
+        }
 
     }
 
