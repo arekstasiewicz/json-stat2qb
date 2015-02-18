@@ -2,6 +2,7 @@ package org.deri.jsonstat2qb.jsonstat.parser;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.util.ISO8601DateFormat;
 
@@ -17,6 +18,7 @@ import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.Map.Entry;
 
 public class JacksonStatParser {
     private ObjectMapper mapper;
@@ -99,18 +101,50 @@ public class JacksonStatParser {
                 }
             }
         }
+
         Map<String, Dimension> dimensions = new LinkedHashMap<>();
 
         if (node.hasNonNull("dimension")) {
             JsonNode dims = node.get("dimension");
             JsonNode ids = dims.get("id");
             JsonNode sizes = dims.get("size");
+            
+            HashMap<String, String> dimensionsRole = new HashMap<String, String>();
+
+            // build HashMap for dimensions
+        	if (dims.hasNonNull("role")) {
+        		JsonNode roles = dims.get("role");
+
+        		Iterator<Entry<String, JsonNode>> fields = roles.fields();
+
+        	     while(fields.hasNext()) {
+
+        	    	 Map.Entry<?,?> element = fields.next();
+                     ArrayNode roleDimensions = (ArrayNode) element.getValue();
+                     Iterator<JsonNode> roleDimensionsIterator = roleDimensions.iterator();
+
+                     while (roleDimensionsIterator.hasNext()) {
+                         JsonNode tnode  = roleDimensionsIterator.next();
+                         dimensionsRole.put(tnode.asText(), (String) element.getKey() );
+                     }
+
+        	      }
+        	}
+            
+            
             for (int i = 0; i < ids.size(); i++) {
                 String id = ids.get(i).asText();
                 int currentSize = sizes.get(i).intValue();
                 if (dims.hasNonNull(id)) {
                     JsonNode dimension = dims.get(id);
-                    dimensions.put(id, parseDimension(i, id, currentSize, dimension));
+                    
+                    ObjectNode tmpDimension = (ObjectNode) dimension;
+                    
+                    if (dimensionsRole.containsKey(id)){
+                    	tmpDimension.put("role", dimensionsRole.get(id));
+                    }
+
+                    dimensions.put(id, parseDimension(i, id, currentSize, (JsonNode) tmpDimension));
                 }
             }
         }
@@ -124,10 +158,18 @@ public class JacksonStatParser {
         if (dimension.has("label")) {
             label = Optional.fromNullable(dimension.get("label").asText());
         }
+
         JsonNode category = dimension.get("category");
 
+        Optional<Role> dimRole;
 
-        return new Dimension(index, id, currentSize, label, parseCategory(category), Optional.<Role>none()); //handle roles
+        try {
+        	dimRole = Optional.some( Role.valueOf( dimension.get("role").asText() ));
+		} catch (NullPointerException e) {
+			dimRole = Optional.<Role>none();
+		}
+        
+        return new Dimension(index, id, currentSize, label, parseCategory(category), dimRole); //handle roles
     }
 
     private Category parseCategory(JsonNode category) {
