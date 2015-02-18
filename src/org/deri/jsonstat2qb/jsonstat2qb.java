@@ -7,17 +7,21 @@ import java.net.JarURLConnection;
 import java.net.URL;
 import java.util.List;
 import java.util.jar.Manifest;
-import org.deri.jsonstat2qb.vocab.JSONSTAT;
+
 import net.hamnaberg.funclite.Optional;
+
+import org.apache.jena.iri.IRIFactory;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 import org.deri.jsonstat2qb.jsonstat.Dataset;
 import org.deri.jsonstat2qb.jsonstat.Dimension;
+import org.deri.jsonstat2qb.jsonstat.Helpers;
 import org.deri.jsonstat2qb.jsonstat.Stat;
 import org.deri.jsonstat2qb.jsonstat.parser.JacksonStatParser;
 
 import arq.cmdline.ArgDecl;
 import arq.cmdline.CmdGeneral;
+
 import com.hp.hpl.jena.rdf.model.Bag;
 import com.hp.hpl.jena.rdf.model.Model;
 import com.hp.hpl.jena.rdf.model.ModelFactory;
@@ -27,10 +31,13 @@ import com.hp.hpl.jena.sparql.util.Utils;
 import com.hp.hpl.jena.util.FileManager;
 import com.hp.hpl.jena.vocabulary.RDF;
 import com.hp.hpl.jena.vocabulary.RDFS;
+
 import org.deri.jsonstat2qb.jsonstat.Category;
 import org.deri.jsonstat2qb.jsonstat.Data;
 import org.deri.jsonstat2qb.jsonstat.table.CsvRenderer;
 import org.deri.jsonstat2qb.jsonstat.table.Table;
+import org.deri.vocab.DataCube;
+import org.deri.vocab.JSONSTAT;
 
 public class jsonstat2qb extends CmdGeneral {
 
@@ -180,37 +187,70 @@ public class jsonstat2qb extends CmdGeneral {
     private void processResults(Dataset dataset) {
 
         Model model = ModelFactory.createDefaultModel();
+
         model.setNsPrefix("json-stat", JSONSTAT.getURI());
+        model.setNsPrefix("qb", DataCube.getURI());
 
-        Resource resource = model.createResource();
+        // TODO add base prefix
+        // TODO allow user input
 
-        resource.addProperty(RDF.type, JSONSTAT.Dataset);
-        resource.addProperty(RDFS.label, model.createLiteral(dataset.getLabel().get()));
+        // Used in DS, DSD, dimensions etc.
+        String datasetNameSpace = Helpers.makeSafeName( dataset.getLabel().get() );
 
-        List<Dimension> dim = dataset.getDimensions();
+        // DataSet
+        Resource ds = model.createResource("dataset/" + datasetNameSpace);
+        ds.addProperty(RDF.type, DataCube.DataSet);
+        ds.addProperty(RDFS.label, model.createLiteral(dataset.getLabel().get()));
 
-        for (Dimension dm : dim) {
+        // Data Structure Definition
+        Resource dsd = model.createResource("structure/" + datasetNameSpace);
+        dsd.addProperty(RDF.type, DataCube.DataStructureDefinition);
 
-            Resource dimension = model.createResource();
-            dimension.addProperty(RDF.type, JSONSTAT.Dimension);
-            dimension.addProperty(RDFS.label, dm.getId());
-            Category cat = dm.getCategory();
-          
-            for (String value : cat) {
-                Resource index = model.createResource();
-                index.addProperty(RDF.type, JSONSTAT.KeyValue);
-                index.addProperty(JSONSTAT.key, model.createLiteral(value));
-                index.addProperty(JSONSTAT.value, model.createTypedLiteral(cat.getIndex(value)));
-                dimension.addProperty(JSONSTAT.indexs, index);
-                Resource label = model.createResource();
-                label.addProperty(RDF.type, JSONSTAT.KeyValue);
-                label.addProperty(JSONSTAT.key, model.createLiteral(value));
-                label.addProperty(JSONSTAT.value, model.createTypedLiteral(cat.getLabel(value).get()));
-                dimension.addProperty(JSONSTAT.labels, label);
-            }
+        // Define dimensions
+        List<Dimension> dimensions = dataset.getDimensions();
 
-            resource.addProperty(JSONSTAT.dimensions, dimension);
+        int index = 0;
+        for (Dimension dm : dimensions) {
+        	System.out.println("Current index is: " + ++index);
         }
+
+
+        // Define measure
+        
+        // Link ds and dsd
+        ds.addProperty(DataCube.structure, dsd.getURI());
+        
+
+
+        
+        
+        
+//        
+//
+//        for (Dimension dm : dim) {
+//
+//            Resource dimension = model.createResource();
+//            dimension.addProperty(RDF.type, JSONSTAT.Dimension);
+//            dimension.addProperty(RDFS.label, dm.getId());
+//            
+//            
+//            Category cat = dm.getCategory();
+//          
+//            for (String value : cat) {
+//                Resource index = model.createResource();
+//                index.addProperty(RDF.type, JSONSTAT.KeyValue);
+//                index.addProperty(JSONSTAT.key, model.createLiteral(value));
+//                index.addProperty(JSONSTAT.value, model.createTypedLiteral(cat.getIndex(value)));
+//                dimension.addProperty(JSONSTAT.indexs, index);
+//                Resource label = model.createResource();
+//                label.addProperty(RDF.type, JSONSTAT.KeyValue);
+//                label.addProperty(JSONSTAT.key, model.createLiteral(value));
+//                label.addProperty(JSONSTAT.value, model.createTypedLiteral(cat.getLabel(value).get()));
+//                dimension.addProperty(JSONSTAT.labels, label);
+//            }
+
+           // resource.addProperty(JSONSTAT.dimensions, dimension);
+//        }
 
         if (writeNTriples){
         	model.write(System.out, "N-Triples");
