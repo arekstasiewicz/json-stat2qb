@@ -16,6 +16,7 @@ import org.apache.log4j.Logger;
 import org.deri.jsonstat2qb.jsonstat.Dataset;
 import org.deri.jsonstat2qb.jsonstat.Dimension;
 import org.deri.jsonstat2qb.jsonstat.Helpers;
+import org.deri.jsonstat2qb.jsonstat.Role;
 import org.deri.jsonstat2qb.jsonstat.Stat;
 import org.deri.jsonstat2qb.jsonstat.parser.JacksonStatParser;
 
@@ -38,6 +39,7 @@ import org.deri.jsonstat2qb.jsonstat.table.CsvRenderer;
 import org.deri.jsonstat2qb.jsonstat.table.Table;
 import org.deri.vocab.DataCube;
 import org.deri.vocab.JSONSTAT;
+import org.deri.vocab.SKOS;
 
 public class jsonstat2qb extends CmdGeneral {
 
@@ -132,6 +134,7 @@ public class jsonstat2qb extends CmdGeneral {
             InputStream input = open(datasetUrl);
             Stat stat = new JacksonStatParser().parse(input);
 
+            // TODO - process multiple datasets?
             Optional<Dataset> dataset = stat.getDataset(0);
 
             for (Dataset ds : dataset) {
@@ -191,6 +194,9 @@ public class jsonstat2qb extends CmdGeneral {
         model.setNsPrefix("json-stat", JSONSTAT.getURI());
         model.setNsPrefix("qb", DataCube.getURI());
 
+        // TODO "source"
+        // TODO "updated"
+
         // TODO add base prefix
         // TODO allow user input
 
@@ -209,17 +215,39 @@ public class jsonstat2qb extends CmdGeneral {
         // Define dimensions
         List<Dimension> dimensions = dataset.getDimensions();
 
-        int index = 0;
+        // Dimension order
+        int index = 1;
         for (Dimension dm : dimensions) {
-        	System.out.println("Current index is: " + ++index);
+        	String dimUri = dm.getRole().get() == Role.metric ? "structure/" + datasetNameSpace + "/measure" : "structure/" + datasetNameSpace + "/component/" + index ;
+
+        	Resource d = model.createResource( dimUri );
+        	d.addProperty(RDF.type, DataCube.ComponentSpecification);
+        	d.addProperty(DataCube.order, model.createTypedLiteral(index));
+        	
+        	// Define the property
+        	// TODO allow user to decide about type
+        	// TODO try to guess type / hierarchy from JSON
+        	// TODO codeList? <http://data.cso.ie/census-2011/property/have-a-personal-computer> <http://purl.org/linked-data/cube#codeList> <http://data.cso.ie/census-2011/classification/have-a-personal-computer> .
+        	Resource prop = model.createResource( dimUri );
+        	prop.addProperty(DataCube.dimension, d);
+        	
+        	prop.addProperty(RDF.type, RDF.Property);
+        	prop.addProperty(RDF.type, SKOS.Concept);
+        	prop.addProperty(RDFS.range, DataCube.ComponentProperty);
+        	prop.addProperty(RDFS.range, DataCube.DimensionProperty);
+
+        	prop.addProperty(RDFS.label, model.createLiteral(dm.getLabel().get()));
+
+        	// Add to dsd
+        	dsd.addProperty(DataCube.component, d);
+
+        	index++;
         }
 
-
         // Define measure
-        
+
         // Link ds and dsd
-        ds.addProperty(DataCube.structure, dsd.getURI());
-        
+        ds.addProperty(DataCube.structure, dsd);
 
 
         
