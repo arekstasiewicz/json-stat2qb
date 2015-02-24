@@ -5,7 +5,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.JarURLConnection;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.jar.Manifest;
 
 import net.hamnaberg.funclite.Optional;
@@ -194,6 +198,9 @@ public class jsonstat2qb extends CmdGeneral {
         model.setNsPrefix("json-stat", JSONSTAT.getURI());
         model.setNsPrefix("qb", DataCube.getURI());
 
+        // TODO keep separate tables for observations and measure
+        // TODO order obs obs obs measure
+        
         // TODO "source"
         // TODO "updated"
 
@@ -214,23 +221,34 @@ public class jsonstat2qb extends CmdGeneral {
 
         // Define dimensions
         List<Dimension> dimensions = dataset.getDimensions();
-
+        
+        // Collect Categories
+        // ArrayList <Category> categoriesIndex = new ArrayList<>();
+        
+        HashMap<String, Category> categoriesIndex = new HashMap<String, Category>();
+        
+        
         // Dimension order
         int index = 1;
         for (Dimension dm : dimensions) {
-        	String dimUri = dm.getRole().get() == Role.metric ? "structure/" + datasetNameSpace + "/measure" : "structure/" + datasetNameSpace + "/component/" + index ;
+        	String dimUri = "structure/" + datasetNameSpace + "/component/" + index;
+        	
+        	
+        	if (! dm.getRole().isNone()){
+        		dimUri = dm.getRole().get() == Role.metric ? "structure/" + datasetNameSpace + "/measure" : "structure/" + datasetNameSpace + "/component/" + index;
+        	}
 
         	Resource d = model.createResource( dimUri );
         	d.addProperty(RDF.type, DataCube.ComponentSpecification);
         	d.addProperty(DataCube.order, model.createTypedLiteral(index));
-        	
+
         	// Define the property
         	// TODO allow user to decide about type
         	// TODO try to guess type / hierarchy from JSON
         	// TODO codeList? <http://data.cso.ie/census-2011/property/have-a-personal-computer> <http://purl.org/linked-data/cube#codeList> <http://data.cso.ie/census-2011/classification/have-a-personal-computer> .
         	Resource prop = model.createResource( dimUri );
         	prop.addProperty(DataCube.dimension, d);
-        	
+
         	prop.addProperty(RDF.type, RDF.Property);
         	prop.addProperty(RDF.type, SKOS.Concept);
         	prop.addProperty(RDFS.range, DataCube.ComponentProperty);
@@ -241,10 +259,96 @@ public class jsonstat2qb extends CmdGeneral {
         	// Add to dsd
         	dsd.addProperty(DataCube.component, d);
 
-        	index++;
+        	Category categories = dm.getCategory();
+        	
+        	// Get Categories (exclude "metric")
+        	if (! dm.getRole().isNone() && dm.getRole().get() != Role.metric ){
+        		categoriesIndex.put(dm.getId(), categories);
+        	}
+
+        	// tmp
+        	categoriesIndex.put(dm.getId(), categories);
+
+        	index++;         
+        }
+        
+        
+        
+        int valueIndex = 0;
+        int currentRow = categoriesIndex.size() - 1;
+        
+        Iterator entries = categoriesIndex.entrySet().iterator();
+
+        while (entries.hasNext()) {
+        	  Entry thisEntry = (Entry) entries.next();
+        	  Object key = thisEntry.getKey();
+        	  Category value = (Category) thisEntry.getValue();
+        	  System.out.println( key + " " + value);
+        	  
+          	for (String v : value) {
+        		valueIndex++;
+        		System.out.println( key + " " + v);
+        	}
+          	
+          	
+        	}
+        
+        
+        
+        
+//    	for (Dimension dm : dimensions) {
+//        	for ( Category cat : categoriesIndex ){
+//        		for (String value : cat) {
+//        			System.out.println( dm.getLabel().get() + ": " + value );
+//        		}
+//        	}
+//    	}
+    	
+
+        
+        
+        
+        /* TODO Waqar */
+        
+        // generate list of categories for each value
+        // Cartesian product
+        
+        
+        
+        
+        // Observations
+        List<Data> values = dataset.getValues();
+
+        for (Data value : values) {
+        	// System.out.println( value );
         }
 
-        // Define measure
+//        rr:logicalTable <#TablesView>;
+//
+//        rr:subjectMap [
+//            rr:template <dataset/{"DATASET"}/{"AREA_ID"};{"DIMENSION_IRI"}>; 
+//            rr:class qb:Observation ;
+//        ];
+//
+//        rr:predicateObjectMap [
+//            rr:predicateMap [ rr:template <property/{"PROPERTY_1"}>; ];
+//            rr:objectMap [ rr:template 'classification/{"PROPERTY_1"}/{"DIMENSION_IRI"}'; ];
+//        ];
+//
+//        rr:predicateObjectMap [
+//            rr:predicate sdmx-dimension:refArea;
+//            rr:objectMap [ rr:template <classification/ST/{"AREA_ID"}>; ];
+//        ];
+//
+//        rr:predicateObjectMap [
+//            rr:predicate qb:dataSet;
+//            rr:objectMap  [ rr:template <dataset/{"DATASET"}>] ;
+//        ];
+//
+//        rr:predicateObjectMap [
+//            rr:predicateMap [ rr:template <property/{"MEASURE"}> ];
+//            rr:objectMap [ rr:column '"OBSERVATION_VALUE"'; rr:datatype xsd:int ];
+//        ];
 
         // Link ds and dsd
         ds.addProperty(DataCube.structure, dsd);
@@ -253,8 +357,7 @@ public class jsonstat2qb extends CmdGeneral {
         
         
         
-//        
-//
+
 //        for (Dimension dm : dim) {
 //
 //            Resource dimension = model.createResource();
@@ -281,9 +384,9 @@ public class jsonstat2qb extends CmdGeneral {
 //        }
 
         if (writeNTriples){
-        	model.write(System.out, "N-Triples");
+        //	model.write(System.out, "N-Triples");
         } else {
-        	model.write(System.out, "RDF/XML-ABBREV");
+        //	model.write(System.out, "RDF/XML-ABBREV");
         }
 
     }
