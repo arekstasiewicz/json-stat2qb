@@ -36,6 +36,7 @@ import com.hp.hpl.jena.sparql.util.Utils;
 import com.hp.hpl.jena.util.FileManager;
 import com.hp.hpl.jena.vocabulary.RDF;
 import com.hp.hpl.jena.vocabulary.RDFS;
+import java.util.LinkedHashMap;
 
 import org.deri.jsonstat2qb.jsonstat.Category;
 import org.deri.jsonstat2qb.jsonstat.Data;
@@ -200,15 +201,12 @@ public class jsonstat2qb extends CmdGeneral {
 
         // TODO keep separate tables for observations and measure
         // TODO order obs obs obs measure
-        
         // TODO "source"
         // TODO "updated"
-
         // TODO add base prefix
         // TODO allow user input
-
         // Used in DS, DSD, dimensions etc.
-        String datasetNameSpace = Helpers.makeSafeName( dataset.getLabel().get() );
+        String datasetNameSpace = Helpers.makeSafeName(dataset.getLabel().get());
 
         // DataSet
         Resource ds = model.createResource("dataset/" + datasetNameSpace);
@@ -221,81 +219,72 @@ public class jsonstat2qb extends CmdGeneral {
 
         // Define dimensions
         List<Dimension> dimensions = dataset.getDimensions();
-        
+
         // Collect Categories
         // ArrayList <Category> categoriesIndex = new ArrayList<>();
-        
         HashMap<String, Category> categoriesIndex = new HashMap<String, Category>();
-        
-        
+
         // Dimension order
         int index = 1;
         for (Dimension dm : dimensions) {
-        	String dimUri = "structure/" + datasetNameSpace + "/component/" + index;
-        	
-        	
-        	if (! dm.getRole().isNone()){
-        		dimUri = dm.getRole().get() == Role.metric ? "structure/" + datasetNameSpace + "/measure" : "structure/" + datasetNameSpace + "/component/" + index;
-        	}
+            String dimUri = "structure/" + datasetNameSpace + "/component/" + index;
 
-        	Resource d = model.createResource( dimUri );
-        	d.addProperty(RDF.type, DataCube.ComponentSpecification);
-        	d.addProperty(DataCube.order, model.createTypedLiteral(index));
+            if (!dm.getRole().isNone()) {
+                dimUri = dm.getRole().get() == Role.metric ? "structure/" + datasetNameSpace + "/measure" : "structure/" + datasetNameSpace + "/component/" + index;
+            }
+
+            Resource d = model.createResource(dimUri);
+            d.addProperty(RDF.type, DataCube.ComponentSpecification);
+            d.addProperty(DataCube.order, model.createTypedLiteral(index));
 
         	// Define the property
-        	// TODO allow user to decide about type
-        	// TODO try to guess type / hierarchy from JSON
-        	// TODO codeList? <http://data.cso.ie/census-2011/property/have-a-personal-computer> <http://purl.org/linked-data/cube#codeList> <http://data.cso.ie/census-2011/classification/have-a-personal-computer> .
-        	Resource prop = model.createResource( dimUri );
-        	prop.addProperty(DataCube.dimension, d);
+            // TODO allow user to decide about type
+            // TODO try to guess type / hierarchy from JSON
+            // TODO codeList? <http://data.cso.ie/census-2011/property/have-a-personal-computer> <http://purl.org/linked-data/cube#codeList> <http://data.cso.ie/census-2011/classification/have-a-personal-computer> .
+            Resource prop = model.createResource(dimUri);
+            prop.addProperty(DataCube.dimension, d);
 
-        	prop.addProperty(RDF.type, RDF.Property);
-        	prop.addProperty(RDF.type, SKOS.Concept);
-        	prop.addProperty(RDFS.range, DataCube.ComponentProperty);
-        	prop.addProperty(RDFS.range, DataCube.DimensionProperty);
+            prop.addProperty(RDF.type, RDF.Property);
+            prop.addProperty(RDF.type, SKOS.Concept);
+            prop.addProperty(RDFS.range, DataCube.ComponentProperty);
+            prop.addProperty(RDFS.range, DataCube.DimensionProperty);
 
-        	prop.addProperty(RDFS.label, model.createLiteral(dm.getLabel().get()));
+            prop.addProperty(RDFS.label, model.createLiteral(dm.getLabel().get()));
 
-        	// Add to dsd
-        	dsd.addProperty(DataCube.component, d);
+            // Add to dsd
+            dsd.addProperty(DataCube.component, d);
 
-        	Category categories = dm.getCategory();
-        	
-        	// Get Categories (exclude "metric")
-        	if (! dm.getRole().isNone() && dm.getRole().get() != Role.metric ){
-        		categoriesIndex.put(dm.getId(), categories);
-        	}
+            Category categories = dm.getCategory();
 
-        	// tmp
-        	categoriesIndex.put(dm.getId(), categories);
+            // Get Categories (exclude "metric")
+            if (!dm.getRole().isNone() && dm.getRole().get() != Role.metric) {
+                categoriesIndex.put(dm.getId(), categories);
+            }
 
-        	index++;         
+            // tmp
+            categoriesIndex.put(dm.getId(), categories);
+
+            index++;
         }
-        
-        
-        
+
         int valueIndex = 0;
         int currentRow = categoriesIndex.size() - 1;
-        
+
         Iterator entries = categoriesIndex.entrySet().iterator();
 
         while (entries.hasNext()) {
-        	  Entry thisEntry = (Entry) entries.next();
-        	  Object key = thisEntry.getKey();
-        	  Category value = (Category) thisEntry.getValue();
-        	  System.out.println( key + " " + value);
-        	  
-          	for (String v : value) {
-        		valueIndex++;
-        		System.out.println( key + " " + v);
-        	}
-          	
-          	
-        	}
-        
-        
-        
-        
+            Entry thisEntry = (Entry) entries.next();
+            Object key = thisEntry.getKey();
+            Category value = (Category) thisEntry.getValue();
+            System.out.println(key + " " + value);
+
+            for (String v : value) {
+                valueIndex++;
+                System.out.println(key + " " + v);
+            }
+
+        }
+
 //    	for (Dimension dm : dimensions) {
 //        	for ( Category cat : categoriesIndex ){
 //        		for (String value : cat) {
@@ -303,24 +292,73 @@ public class jsonstat2qb extends CmdGeneral {
 //        		}
 //        	}
 //    	}
-    	
-
-        
-        
-        
         /* TODO Waqar */
-        
         // generate list of categories for each value
         // Cartesian product
-        
-        
-        
-        
+        LinkedHashMap<String, List<String>> dataList = new LinkedHashMap<String, List<String>>();;
+
+        for (Dimension dm : dimensions) {
+            Category cat = dm.getCategory();
+            List<String> list = new ArrayList<String>();
+            for (String value : cat) {
+                list.add(value);
+            }
+            dataList.put(dm.getId(), list);
+        }
+
+        List<List<String>> product = new ArrayList<List<String>>();
+        product.add(new ArrayList<String>());
+        for (List<String> x : dataList.values()) {
+            List<List<String>> t1 = new ArrayList<List<String>>();
+            for (List<String> z : product) {
+                for (String y : x) {
+                    List<String> t2 = new ArrayList<String>(z);
+                    t2.add(y);
+                    t1.add(t2);
+                }
+            }
+            product = t1;
+        }
+
+        int m = product.size() + 1;
+        int n = dataList.keySet().size();
+
+        String[][] combinations = new String[m][n];
+
+        combinations[0] = dataList.keySet().toArray(new String[n]);
+
+        for (int i = 1; i < m; i++) {
+            for (int j = 0; j < n; j++) {
+                combinations[i][j] = product.get(i - 1).get(j);
+            }
+        }
+
+        int count = 0;
+
+        String[] header = null;
+
+        for (String[] combination : combinations) {
+            if (header == null) {
+                header = combination;
+                count++;
+                continue;
+            }
+            String key = "";
+            for (int k = 0; k < combination.length; k++) {
+                System.out.print(header[k] + combination[k]);
+                key += header[k] + combination[k];
+            }
+            System.out.println("=>" + dataset.getValue(count - 1) + "=" + (key.equals(dataset.getValue(count - 1).toString())));
+            count++;
+
+        }
+        System.out.println("Size:" + product.size());
+
         // Observations
         List<Data> values = dataset.getValues();
 
         for (Data value : values) {
-        	// System.out.println( value );
+            // System.out.println( value );
         }
 
 //        rr:logicalTable <#TablesView>;
@@ -349,14 +387,8 @@ public class jsonstat2qb extends CmdGeneral {
 //            rr:predicateMap [ rr:template <property/{"MEASURE"}> ];
 //            rr:objectMap [ rr:column '"OBSERVATION_VALUE"'; rr:datatype xsd:int ];
 //        ];
-
         // Link ds and dsd
         ds.addProperty(DataCube.structure, dsd);
-
-
-        
-        
-        
 
 //        for (Dimension dm : dim) {
 //
@@ -379,14 +411,12 @@ public class jsonstat2qb extends CmdGeneral {
 //                label.addProperty(JSONSTAT.value, model.createTypedLiteral(cat.getLabel(value).get()));
 //                dimension.addProperty(JSONSTAT.labels, label);
 //            }
-
            // resource.addProperty(JSONSTAT.dimensions, dimension);
 //        }
-
-        if (writeNTriples){
-        //	model.write(System.out, "N-Triples");
+        if (writeNTriples) {
+            //	model.write(System.out, "N-Triples");
         } else {
-        //	model.write(System.out, "RDF/XML-ABBREV");
+            //	model.write(System.out, "RDF/XML-ABBREV");
         }
 
     }
