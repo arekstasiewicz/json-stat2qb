@@ -76,9 +76,11 @@ public class jsonstat2qb extends CmdGeneral {
     private String datasetUrl = null;
     private String encoding = null;
     private boolean writeNTriples = false;
+    private boolean validateCube = false;
 
     private final ArgDecl encodingArg = new ArgDecl(true, "encoding", "e");
     private final ArgDecl nTriplesArg = new ArgDecl(false, "ntriples");
+    private final ArgDecl validateCubeArg = new ArgDecl(false, "validate");
 
     public jsonstat2qb(String[] args) {
         super(args);
@@ -86,6 +88,8 @@ public class jsonstat2qb extends CmdGeneral {
         getUsage().startCategory("Options");
         add(encodingArg, "-e   --encoding", "Override source file encoding (e.g., utf-8 or latin-1)");
         add(nTriplesArg, "--ntriples", "Write N-Triples instead of Turtle");
+        add(validateCubeArg, "--validate", "Test output data against DataCube queries");
+
         getUsage().startCategory("Main arguments");
 
         getUsage().addUsage("datasetUrl", "Link to the converted file.");
@@ -114,6 +118,10 @@ public class jsonstat2qb extends CmdGeneral {
             writeNTriples = true;
         }
 
+        if (hasArg(validateCubeArg)) {
+        	validateCube = true;
+        }
+
         datasetUrl = getPositionalArg(0);
         if (datasetUrl == null || datasetUrl.length() < 1) {
             cmdError("Value of datasetUrl must be valid URL");
@@ -134,6 +142,8 @@ public class jsonstat2qb extends CmdGeneral {
 
             if (log.isDebugEnabled()) {
                 log.debug("Dataset: " + datasetUrl);
+                log.debug("NTriples output: " + writeNTriples);
+                log.debug("Do the validation: " + validateCube);
             }
 
             InputStream input = open(datasetUrl);
@@ -294,7 +304,7 @@ public class jsonstat2qb extends CmdGeneral {
 //    	}
         /* TODO Waqar */
         // generate list of categories for each value
-        // Cartesian product
+        // Cartesian product for the dimensions and measures
         LinkedHashMap<String, List<String>> dataList = new LinkedHashMap<String, List<String>>();;
 
         for (Dimension dm : dimensions) {
@@ -345,7 +355,7 @@ public class jsonstat2qb extends CmdGeneral {
             }
             String key = "";
             for (int k = 0; k < combination.length; k++) {
-                System.out.print(header[k] + combination[k]);
+                System.out.print(header[k]+ " : "+ combination[k] +"\t|\t");
                 key += header[k] + combination[k];
             }
             System.out.println("=>" + dataset.getValue(count - 1) + "=" + (key.equals(dataset.getValue(count - 1).toString())));
