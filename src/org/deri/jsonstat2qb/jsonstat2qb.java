@@ -39,8 +39,10 @@ import com.hp.hpl.jena.rdf.model.Resource;
 import com.hp.hpl.jena.shared.NotFoundException;
 import com.hp.hpl.jena.sparql.util.Utils;
 import com.hp.hpl.jena.util.FileManager;
+
 import com.hp.hpl.jena.vocabulary.RDF;
 import com.hp.hpl.jena.vocabulary.RDFS;
+import com.hp.hpl.jena.vocabulary.XSD;
 
 public class jsonstat2qb extends CmdGeneral {
 
@@ -204,6 +206,7 @@ public class jsonstat2qb extends CmdGeneral {
 
         model.setNsPrefix("json-stat", JSONSTAT.getURI());
         model.setNsPrefix("qb", DataCube.getURI());
+        model.setNsPrefix("xsd", XSD.getURI());
 
         // TODO keep separate tables for observations and measure
         // TODO order obs obs obs measure
@@ -229,14 +232,19 @@ public class jsonstat2qb extends CmdGeneral {
         // Collect Categories
         // ArrayList <Category> categoriesIndex = new ArrayList<>();
         HashMap<String, Category> categoriesIndex = new HashMap<String, Category>();
-
+        HashMap<Integer, String> measuresIndex = new HashMap<Integer, String>();
+        
         // Dimension order
         int index = 1;
         for (Dimension dm : dimensions) {
             String dimUri = "structure/" + datasetNameSpace + "/component/" + index;
 
             if (!dm.getRole().isNone()) {
-                dimUri = dm.getRole().get() == Role.metric ? "structure/" + datasetNameSpace + "/measure" : "structure/" + datasetNameSpace + "/component/" + index;
+            	if ( dm.getRole().get() == Role.metric ){
+            		dimUri =  "structure/" + datasetNameSpace + "/measure";
+            	} else {
+            		dimUri =  "structure/" + datasetNameSpace + "/component/" + index;
+            	}
             }
 
             Resource d = model.createResource(dimUri);
@@ -260,15 +268,20 @@ public class jsonstat2qb extends CmdGeneral {
             // Add to dsd
             dsd.addProperty(DataCube.component, d);
 
-            Category categories = dm.getCategory();
+            Category category = dm.getCategory();
 
             // Get Categories (exclude "metric")
-            if (!dm.getRole().isNone() && dm.getRole().get() != Role.metric) {
-                categoriesIndex.put(dm.getId(), categories);
-            }
+			if (!dm.getRole().isNone()) {
+				if (dm.getRole().get() != Role.metric) {
+					categoriesIndex.put(dm.getId(), category);
+				} else {
+					// TODO dynamic + multi-measure
+					measuresIndex.put(0, dimUri);
+				}
+			}
 
             // tmp
-            categoriesIndex.put(dm.getId(), categories);
+            categoriesIndex.put(dm.getId(), category);
 
             index++;
         }
@@ -359,7 +372,7 @@ public class jsonstat2qb extends CmdGeneral {
             String obsURI = "dataset/" + datasetNameSpace;
 
             for (int k = 0; k < combination.length; k++) {
-                System.out.println(header[k]+ " : "+ combination[k] +"\t|\t");
+                // System.out.println(header[k]+ " : "+ combination[k] +"\t|\t");
                 // key += header[k] + combination[k];
                 obsURI += "/" + combination[k];
             }
@@ -367,24 +380,24 @@ public class jsonstat2qb extends CmdGeneral {
             // System.out.println( obsURI );
             
             //System.out.println("=>" + dataset.getValue(count - 1) + "=" + (key.equals(dataset.getValue(count - 1).toString())));
-            count++;
+            
 
             // Add Observations
-            
             Resource obs = model.createResource(obsURI);
             obs.addProperty(RDF.type, DataCube.Observation);
+            obs.addProperty(DataCube.dataSet, ds);
             
+            // TODO measure type as parameter
+            
+            obs.addProperty( model.createProperty( measuresIndex.get(0) ), dataset.getValue(count - 1).toString());
+            obs.addProperty(DataCube.dataSet, XSD.integer);
+            
+            
+            
+            count++;
         }
 
-
-
-//        rr:logicalTable <#TablesView>;
-//
-//        rr:subjectMap [
-//            rr:template <dataset/{"DATASET"}/{"AREA_ID"};{"DIMENSION_IRI"}>; 
-//            rr:class qb:Observation ;
-//        ];
-//
+        
 //        rr:predicateObjectMap [
 //            rr:predicateMap [ rr:template <property/{"PROPERTY_1"}>; ];
 //            rr:objectMap [ rr:template 'classification/{"PROPERTY_1"}/{"DIMENSION_IRI"}'; ];
@@ -395,10 +408,7 @@ public class jsonstat2qb extends CmdGeneral {
 //            rr:objectMap [ rr:template <classification/ST/{"AREA_ID"}>; ];
 //        ];
 //
-//        rr:predicateObjectMap [
-//            rr:predicate qb:dataSet;
-//            rr:objectMap  [ rr:template <dataset/{"DATASET"}>] ;
-//        ];
+
 //
 //        rr:predicateObjectMap [
 //            rr:predicateMap [ rr:template <property/{"MEASURE"}> ];
@@ -437,7 +447,7 @@ public class jsonstat2qb extends CmdGeneral {
         } else {
             //	model.write(System.out, "RDF/XML-ABBREV");
         }
-        // model.write(System.out, "N-Triples");
+        model.write(System.out, "N-Triples");
     }
 
 }
