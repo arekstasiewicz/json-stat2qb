@@ -6,28 +6,33 @@ import java.io.InputStream;
 import java.net.JarURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.jar.Manifest;
 
 import net.hamnaberg.funclite.Optional;
 
-import org.apache.jena.iri.IRIFactory;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
+import org.deri.jsonstat2qb.jsonstat.Category;
+import org.deri.jsonstat2qb.jsonstat.Data;
 import org.deri.jsonstat2qb.jsonstat.Dataset;
 import org.deri.jsonstat2qb.jsonstat.Dimension;
 import org.deri.jsonstat2qb.jsonstat.Helpers;
 import org.deri.jsonstat2qb.jsonstat.Role;
 import org.deri.jsonstat2qb.jsonstat.Stat;
 import org.deri.jsonstat2qb.jsonstat.parser.JacksonStatParser;
+import org.deri.vocab.DataCube;
+import org.deri.vocab.JSONSTAT;
+import org.deri.vocab.SKOS;
 
 import arq.cmdline.ArgDecl;
 import arq.cmdline.CmdGeneral;
 
-import com.hp.hpl.jena.rdf.model.Bag;
 import com.hp.hpl.jena.rdf.model.Model;
 import com.hp.hpl.jena.rdf.model.ModelFactory;
 import com.hp.hpl.jena.rdf.model.Resource;
@@ -36,15 +41,6 @@ import com.hp.hpl.jena.sparql.util.Utils;
 import com.hp.hpl.jena.util.FileManager;
 import com.hp.hpl.jena.vocabulary.RDF;
 import com.hp.hpl.jena.vocabulary.RDFS;
-import java.util.LinkedHashMap;
-
-import org.deri.jsonstat2qb.jsonstat.Category;
-import org.deri.jsonstat2qb.jsonstat.Data;
-import org.deri.jsonstat2qb.jsonstat.table.CsvRenderer;
-import org.deri.jsonstat2qb.jsonstat.table.Table;
-import org.deri.vocab.DataCube;
-import org.deri.vocab.JSONSTAT;
-import org.deri.vocab.SKOS;
 
 public class jsonstat2qb extends CmdGeneral {
 
@@ -286,11 +282,11 @@ public class jsonstat2qb extends CmdGeneral {
             Entry thisEntry = (Entry) entries.next();
             Object key = thisEntry.getKey();
             Category value = (Category) thisEntry.getValue();
-            System.out.println(key + " " + value);
+            // System.out.println(key + " " + value);
 
             for (String v : value) {
                 valueIndex++;
-                System.out.println(key + " " + v);
+                // System.out.println(key + " " + v);
             }
 
         }
@@ -302,7 +298,8 @@ public class jsonstat2qb extends CmdGeneral {
 //        		}
 //        	}
 //    	}
-        /* TODO Waqar */
+
+
         // generate list of categories for each value
         // Cartesian product for the dimensions and measures
         LinkedHashMap<String, List<String>> dataList = new LinkedHashMap<String, List<String>>();;
@@ -311,7 +308,7 @@ public class jsonstat2qb extends CmdGeneral {
             Category cat = dm.getCategory();
             List<String> list = new ArrayList<String>();
             for (String value : cat) {
-                list.add(value);
+                list.add(Helpers.makeSafeName(cat.getLabel(value).get().toString()));
             }
             dataList.put(dm.getId(), list);
         }
@@ -347,29 +344,39 @@ public class jsonstat2qb extends CmdGeneral {
 
         String[] header = null;
 
+        // Observations
         for (String[] combination : combinations) {
             if (header == null) {
                 header = combination;
                 count++;
                 continue;
             }
+
+            // System.out.println(Arrays.toString(combination));
+            
             String key = "";
+            // generate unique Observation URI
+            String obsURI = "dataset/" + datasetNameSpace;
+
             for (int k = 0; k < combination.length; k++) {
-                System.out.print(header[k]+ " : "+ combination[k] +"\t|\t");
-                key += header[k] + combination[k];
+                System.out.println(header[k]+ " : "+ combination[k] +"\t|\t");
+                // key += header[k] + combination[k];
+                obsURI += "/" + combination[k];
             }
-            System.out.println("=>" + dataset.getValue(count - 1) + "=" + (key.equals(dataset.getValue(count - 1).toString())));
+            
+            // System.out.println( obsURI );
+            
+            //System.out.println("=>" + dataset.getValue(count - 1) + "=" + (key.equals(dataset.getValue(count - 1).toString())));
             count++;
 
+            // Add Observations
+            
+            Resource obs = model.createResource(obsURI);
+            obs.addProperty(RDF.type, DataCube.Observation);
+            
         }
-        System.out.println("Size:" + product.size());
 
-        // Observations
-        List<Data> values = dataset.getValues();
 
-        for (Data value : values) {
-            // System.out.println( value );
-        }
 
 //        rr:logicalTable <#TablesView>;
 //
@@ -397,6 +404,8 @@ public class jsonstat2qb extends CmdGeneral {
 //            rr:predicateMap [ rr:template <property/{"MEASURE"}> ];
 //            rr:objectMap [ rr:column '"OBSERVATION_VALUE"'; rr:datatype xsd:int ];
 //        ];
+        
+        
         // Link ds and dsd
         ds.addProperty(DataCube.structure, dsd);
 
@@ -428,7 +437,7 @@ public class jsonstat2qb extends CmdGeneral {
         } else {
             //	model.write(System.out, "RDF/XML-ABBREV");
         }
-
+        // model.write(System.out, "N-Triples");
     }
 
 }
