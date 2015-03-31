@@ -13,9 +13,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.jar.Manifest;
-
 import net.hamnaberg.funclite.Optional;
-
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 import org.deri.jsonstat2qb.jsonstat.Category;
@@ -29,17 +27,14 @@ import org.deri.jsonstat2qb.jsonstat.parser.JacksonStatParser;
 import org.deri.vocab.DataCube;
 import org.deri.vocab.JSONSTAT;
 import org.deri.vocab.SKOS;
-
 import arq.cmdline.ArgDecl;
 import arq.cmdline.CmdGeneral;
-
 import com.hp.hpl.jena.rdf.model.Model;
 import com.hp.hpl.jena.rdf.model.ModelFactory;
 import com.hp.hpl.jena.rdf.model.Resource;
 import com.hp.hpl.jena.shared.NotFoundException;
 import com.hp.hpl.jena.sparql.util.Utils;
 import com.hp.hpl.jena.util.FileManager;
-
 import com.hp.hpl.jena.vocabulary.RDF;
 import com.hp.hpl.jena.vocabulary.RDFS;
 import com.hp.hpl.jena.vocabulary.XSD;
@@ -53,15 +48,15 @@ public class jsonstat2qb extends CmdGeneral {
     public static final String BUILD_DATE;
 
     static {
-        String version = "Unknown";
-        String date = "Unknown";
+        String version = "1.0";
+        String date = "30/03/2015";
         try {
             URL res = jsonstat2qb.class.getResource(jsonstat2qb.class.getSimpleName() + ".class");
             Manifest manifest = ((JarURLConnection) res.openConnection()).getManifest();
             version = (String) manifest.getMainAttributes().getValue("Implementation-Version");
             date = (String) manifest.getMainAttributes().getValue("Built-Date");
         } catch (Exception ex) {
-            // do nothing
+            System.err.println(ex);
         }
         VERSION = version;
         BUILD_DATE = date;
@@ -72,14 +67,14 @@ public class jsonstat2qb extends CmdGeneral {
     }
 
     private String datasetUrl = null;
+    private String baseUri = null;
     private String encoding = null;
     private boolean writeNTriples = false;
     private boolean validateCube = false;
-
     private final ArgDecl encodingArg = new ArgDecl(true, "encoding", "e");
     private final ArgDecl nTriplesArg = new ArgDecl(false, "ntriples");
     private final ArgDecl validateCubeArg = new ArgDecl(false, "validate");
-
+    private final ArgDecl baseUriArg = new ArgDecl(true, "baseURI", "b");
     public jsonstat2qb(String[] args) {
         super(args);
 
@@ -87,7 +82,7 @@ public class jsonstat2qb extends CmdGeneral {
         add(encodingArg, "-e   --encoding", "Override source file encoding (e.g., utf-8 or latin-1)");
         add(nTriplesArg, "--ntriples", "Write N-Triples instead of Turtle");
         add(validateCubeArg, "--validate", "Test output data against DataCube queries");
-
+        add(baseUriArg, "-b   --baseuri", "baseuri for uri e.g. http://example/ ");
         getUsage().startCategory("Main arguments");
 
         getUsage().addUsage("datasetUrl", "Link to the converted file.");
@@ -117,13 +112,21 @@ public class jsonstat2qb extends CmdGeneral {
         }
 
         if (hasArg(validateCubeArg)) {
-        	validateCube = true;
+            validateCube = true;
         }
 
+        if (hasArg(baseUriArg)) {	
+           baseUri = getValue(baseUriArg);
+        }else {
+           baseUri = "http://example/";
+        }
+         
         datasetUrl = getPositionalArg(0);
         if (datasetUrl == null || datasetUrl.length() < 1) {
             cmdError("Value of datasetUrl must be valid URL");
         }
+        
+       
 
     }
 
@@ -149,9 +152,14 @@ public class jsonstat2qb extends CmdGeneral {
 
             // TODO - process multiple datasets?
             Optional<Dataset> dataset = stat.getDataset(0);
-
+            Model model = ModelFactory.createDefaultModel();
+            model.setNsPrefix("json-stat", JSONSTAT.getURI());
+            model.setNsPrefix("qb", DataCube.getURI());
+            model.setNsPrefix("xsd", XSD.getURI());
+            
+            int index = 0; 
             for (Dataset ds : dataset) {
-
+                String datasetId = "ds-"+ index;
                 if (log.isDebugEnabled()) {
                     System.out.println("ds.size() = " + ds.size());
                     List<Dimension> dimensions = ds.getDimensions();
@@ -159,18 +167,17 @@ public class jsonstat2qb extends CmdGeneral {
                         System.out.println("dimension label: " + dimension.getLabel().get());
                     }
                 }
-
-                processResults(dataset.get());
+                model.setNsPrefix(datasetId , baseUri + datasetId + "/" );
+                processResults(model, dataset.get(), baseUri + datasetId + "/");
+                index++;
 
             }
-
+            model.write(System.out, "TTL");
         } catch (NotFoundException ex) {
             cmdError("Not found: " + ex.getMessage());
         } catch (FileNotFoundException e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
         } catch (IOException e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
         }
     }
@@ -200,13 +207,7 @@ public class jsonstat2qb extends CmdGeneral {
         }
     }
 
-    private void processResults(Dataset dataset) {
-
-        Model model = ModelFactory.createDefaultModel();
-
-        model.setNsPrefix("json-stat", JSONSTAT.getURI());
-        model.setNsPrefix("qb", DataCube.getURI());
-        model.setNsPrefix("xsd", XSD.getURI());
+    private void processResults(Model model, Dataset dataset, String datasetNameSpace) {
 
         // TODO keep separate tables for observations and measure
         // TODO order obs obs obs measure
@@ -215,15 +216,14 @@ public class jsonstat2qb extends CmdGeneral {
         // TODO add base prefix
         // TODO allow user input
         // Used in DS, DSD, dimensions etc.
-        String datasetNameSpace = Helpers.makeSafeName(dataset.getLabel().get());
-
+     
         // DataSet
-        Resource ds = model.createResource("dataset/" + datasetNameSpace);
+        Resource ds = model.createResource(datasetNameSpace);
         ds.addProperty(RDF.type, DataCube.DataSet);
         ds.addProperty(RDFS.label, model.createLiteral(dataset.getLabel().get()));
 
         // Data Structure Definition
-        Resource dsd = model.createResource("structure/" + datasetNameSpace);
+        Resource dsd = model.createResource(datasetNameSpace + "structure");
         dsd.addProperty(RDF.type, DataCube.DataStructureDefinition);
 
         // Define dimensions
@@ -233,30 +233,34 @@ public class jsonstat2qb extends CmdGeneral {
         // ArrayList <Category> categoriesIndex = new ArrayList<>();
         HashMap<String, Category> categoriesIndex = new HashMap<String, Category>();
         HashMap<Integer, String> measuresIndex = new HashMap<Integer, String>();
-        
+
         // Dimension order
         int index = 1;
         for (Dimension dm : dimensions) {
-            String dimUri = "structure/" + datasetNameSpace + "/component/" + index;
-
+            String dimUri =   datasetNameSpace + "components/" + Helpers.makeSafeName(dm.getId());
+            
+            boolean isMeasue = false;
+            
             if (!dm.getRole().isNone()) {
-            	if ( dm.getRole().get() == Role.metric ){
-            		dimUri =  "structure/" + datasetNameSpace + "/measure";
-            	} else {
-            		dimUri =  "structure/" + datasetNameSpace + "/component/" + index;
-            	}
+                if (dm.getRole().get() == Role.metric) {
+                    isMeasue = true;
+                } 
             }
 
-            Resource d = model.createResource(dimUri);
+            Resource d = model.createResource(datasetNameSpace  + Helpers.makeSafeName(dm.getId()));
             d.addProperty(RDF.type, DataCube.ComponentSpecification);
             d.addProperty(DataCube.order, model.createTypedLiteral(index));
 
-        	// Define the property
+            // Define the property
             // TODO allow user to decide about type
             // TODO try to guess type / hierarchy from JSON
             // TODO codeList? <http://data.cso.ie/census-2011/property/have-a-personal-computer> <http://purl.org/linked-data/cube#codeList> <http://data.cso.ie/census-2011/classification/have-a-personal-computer> .
             Resource prop = model.createResource(dimUri);
-            prop.addProperty(DataCube.dimension, d);
+            if (isMeasue) {
+                prop.addProperty(DataCube.measure, d);
+            } else {
+                prop.addProperty(DataCube.dimension, d);
+            }
 
             prop.addProperty(RDF.type, RDF.Property);
             prop.addProperty(RDF.type, SKOS.Concept);
@@ -271,14 +275,14 @@ public class jsonstat2qb extends CmdGeneral {
             Category category = dm.getCategory();
 
             // Get Categories (exclude "metric")
-			if (!dm.getRole().isNone()) {
-				if (dm.getRole().get() != Role.metric) {
-					categoriesIndex.put(dm.getId(), category);
-				} else {
-					// TODO dynamic + multi-measure
-					measuresIndex.put(0, dimUri);
-				}
-			}
+            if (!dm.getRole().isNone()) {
+                if (dm.getRole().get() != Role.metric) {
+                    categoriesIndex.put(dm.getId(), category);
+                } else {
+                    // TODO dynamic + multi-measure
+                    measuresIndex.put(0, dimUri);
+                }
+            }
 
             // tmp
             categoriesIndex.put(dm.getId(), category);
@@ -304,16 +308,7 @@ public class jsonstat2qb extends CmdGeneral {
 
         }
 
-//    	for (Dimension dm : dimensions) {
-//        	for ( Category cat : categoriesIndex ){
-//        		for (String value : cat) {
-//        			System.out.println( dm.getLabel().get() + ": " + value );
-//        		}
-//        	}
-//    	}
 
-
-        // generate list of categories for each value
         // Cartesian product for the dimensions and measures
         LinkedHashMap<String, List<String>> dataList = new LinkedHashMap<String, List<String>>();;
 
@@ -365,89 +360,28 @@ public class jsonstat2qb extends CmdGeneral {
                 continue;
             }
 
-            // System.out.println(Arrays.toString(combination));
-            
-            String key = "";
             // generate unique Observation URI
-            String obsURI = "dataset/" + datasetNameSpace;
+            String obsURI =  datasetNameSpace + "observation-" + count;
 
-            for (int k = 0; k < combination.length; k++) {
-                // System.out.println(header[k]+ " : "+ combination[k] +"\t|\t");
-                // key += header[k] + combination[k];
-                obsURI += "/" + combination[k];
-            }
-            
-            // System.out.println( obsURI );
-            
-            //System.out.println("=>" + dataset.getValue(count - 1) + "=" + (key.equals(dataset.getValue(count - 1).toString())));
-            
-
-            // Add Observations
+           // Add Observations
             Resource obs = model.createResource(obsURI);
             obs.addProperty(RDF.type, DataCube.Observation);
             obs.addProperty(DataCube.dataSet, ds);
-            
+            int k = 0;
+            for (k = 0; k < combination.length - 1; k++) {
+                String dimUri = datasetNameSpace + Helpers.makeSafeName(combinations[0][k]);
+                obs.addProperty(model.createProperty(dimUri), model.createResource(datasetNameSpace+"v/" + Helpers.makeSafeName(combination[k])));
+            }     
             // TODO measure type as parameter
-            
-            obs.addProperty( model.createProperty( measuresIndex.get(0) ), dataset.getValue(count - 1).toString());
-            obs.addProperty(DataCube.dataSet, XSD.integer);
-            
-            
-            
+            try {
+                obs.addProperty(model.createProperty( datasetNameSpace + Helpers.makeSafeName(combinations[0][k])), model.createTypedLiteral(Double.parseDouble(dataset.getValue(count - 1).toString())));
+            } catch (Exception e) {
+                obs.addProperty(model.createProperty( datasetNameSpace  +Helpers.makeSafeName(combinations[0][k])), model.createTypedLiteral(0.0));
+            }
+            //obs.addProperty(DataCube.dataSet, XSD.integer);
             count++;
         }
 
-        
-//        rr:predicateObjectMap [
-//            rr:predicateMap [ rr:template <property/{"PROPERTY_1"}>; ];
-//            rr:objectMap [ rr:template 'classification/{"PROPERTY_1"}/{"DIMENSION_IRI"}'; ];
-//        ];
-//
-//        rr:predicateObjectMap [
-//            rr:predicate sdmx-dimension:refArea;
-//            rr:objectMap [ rr:template <classification/ST/{"AREA_ID"}>; ];
-//        ];
-//
-
-//
-//        rr:predicateObjectMap [
-//            rr:predicateMap [ rr:template <property/{"MEASURE"}> ];
-//            rr:objectMap [ rr:column '"OBSERVATION_VALUE"'; rr:datatype xsd:int ];
-//        ];
-        
-        
-        // Link ds and dsd
-        ds.addProperty(DataCube.structure, dsd);
-
-//        for (Dimension dm : dim) {
-//
-//            Resource dimension = model.createResource();
-//            dimension.addProperty(RDF.type, JSONSTAT.Dimension);
-//            dimension.addProperty(RDFS.label, dm.getId());
-//            
-//            
-//            Category cat = dm.getCategory();
-//          
-//            for (String value : cat) {
-//                Resource index = model.createResource();
-//                index.addProperty(RDF.type, JSONSTAT.KeyValue);
-//                index.addProperty(JSONSTAT.key, model.createLiteral(value));
-//                index.addProperty(JSONSTAT.value, model.createTypedLiteral(cat.getIndex(value)));
-//                dimension.addProperty(JSONSTAT.indexs, index);
-//                Resource label = model.createResource();
-//                label.addProperty(RDF.type, JSONSTAT.KeyValue);
-//                label.addProperty(JSONSTAT.key, model.createLiteral(value));
-//                label.addProperty(JSONSTAT.value, model.createTypedLiteral(cat.getLabel(value).get()));
-//                dimension.addProperty(JSONSTAT.labels, label);
-//            }
-           // resource.addProperty(JSONSTAT.dimensions, dimension);
-//        }
-        if (writeNTriples) {
-            //	model.write(System.out, "N-Triples");
-        } else {
-            //	model.write(System.out, "RDF/XML-ABBREV");
-        }
-        model.write(System.out, "N-Triples");
     }
 
 }
