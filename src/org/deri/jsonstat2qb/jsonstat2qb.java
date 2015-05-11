@@ -38,6 +38,9 @@ import com.hp.hpl.jena.util.FileManager;
 import com.hp.hpl.jena.vocabulary.RDF;
 import com.hp.hpl.jena.vocabulary.RDFS;
 import com.hp.hpl.jena.vocabulary.XSD;
+import org.deri.jsonstat2qb.jsonstat.table.CsvRenderer;
+import org.deri.jsonstat2qb.jsonstat.table.Table;
+import org.eclipse.jetty.server.Server;
 
 public class jsonstat2qb extends CmdGeneral {
 
@@ -67,20 +70,24 @@ public class jsonstat2qb extends CmdGeneral {
     }
 
     private String datasetUrl = null;
-    private String baseUri = null;
+    static private String baseUri = null;
     private String encoding = null;
     private boolean writeNTriples = false;
     private boolean validateCube = false;
+    private boolean webservice = false;
     private final ArgDecl encodingArg = new ArgDecl(true, "encoding", "e");
     private final ArgDecl nTriplesArg = new ArgDecl(false, "ntriples");
+    private final ArgDecl webserviceArg = new ArgDecl(false, "webservice", "s");
     private final ArgDecl validateCubeArg = new ArgDecl(false, "validate");
     private final ArgDecl baseUriArg = new ArgDecl(true, "baseURI", "b");
+
     public jsonstat2qb(String[] args) {
         super(args);
 
         getUsage().startCategory("Options");
         add(encodingArg, "-e   --encoding", "Override source file encoding (e.g., utf-8 or latin-1)");
         add(nTriplesArg, "--ntriples", "Write N-Triples instead of Turtle");
+        add(webserviceArg, "-s --webservice", "Run as web service");
         add(validateCubeArg, "--validate", "Test output data against DataCube queries");
         add(baseUriArg, "-b   --baseuri", "baseuri for uri e.g. http://example./ ");
         getUsage().startCategory("Main arguments");
@@ -111,22 +118,24 @@ public class jsonstat2qb extends CmdGeneral {
             writeNTriples = true;
         }
 
+        if (hasArg(webserviceArg)) {
+            webservice = true;
+        }
+
         if (hasArg(validateCubeArg)) {
             validateCube = true;
         }
 
-        if (hasArg(baseUriArg)) {	
-           baseUri = getValue(baseUriArg);
-        }else {
-           baseUri = "http://example/";
+        if (hasArg(baseUriArg)) {
+            baseUri = getValue(baseUriArg);
+        } else {
+            baseUri = "http://example/";
         }
-         
+
         datasetUrl = getPositionalArg(0);
         if (datasetUrl == null || datasetUrl.length() < 1) {
             cmdError("Value of datasetUrl must be valid URL");
         }
-        
-       
 
     }
 
@@ -134,6 +143,15 @@ public class jsonstat2qb extends CmdGeneral {
     protected void exec() {
         initLogging();
         try {
+
+            if (webservice) {
+                Server server = new Server(8080);
+                server.setHandler(new WebService());
+                server.start();
+                System.out.println("Runnig at localhost:8080");
+                server.join();
+                return;
+            }
 
             if (encoding != null) {
                 if (log.isDebugEnabled()) {
@@ -146,32 +164,7 @@ public class jsonstat2qb extends CmdGeneral {
                 log.debug("NTriples output: " + writeNTriples);
                 log.debug("Do the validation: " + validateCube);
             }
-
-            InputStream input = open(datasetUrl);
-            Stat stat = new JacksonStatParser().parse(input);
-
-            // TODO - process multiple datasets?
-            Optional<Dataset> dataset = stat.getDataset(0);
-            Model model = ModelFactory.createDefaultModel();
-            model.setNsPrefix("json-stat", JSONSTAT.getURI());
-            model.setNsPrefix("qb", DataCube.getURI());
-            model.setNsPrefix("xsd", XSD.getURI());
-            
-            int index = 0; 
-            for (Dataset ds : dataset) {
-                String datasetId = "ds-"+ index;
-                if (log.isDebugEnabled()) {
-                    System.out.println("ds.size() = " + ds.size());
-                    List<Dimension> dimensions = ds.getDimensions();
-                    for (Dimension dimension : dimensions) {
-                        System.out.println("dimension label: " + dimension.getLabel().get());
-                    }
-                }
-                model.setNsPrefix(datasetId , baseUri + datasetId + "/");
-                processResults(model, dataset.get(), baseUri + datasetId + "/");
-                index++;
-
-            }
+            Model model = jsonstat2qb(datasetUrl);
             model.write(System.out, "TTL");
         } catch (NotFoundException ex) {
             cmdError("Not found: " + ex.getMessage());
@@ -179,10 +172,41 @@ public class jsonstat2qb extends CmdGeneral {
             e.printStackTrace();
         } catch (IOException e) {
             e.printStackTrace();
+        } catch (Exception ex) {
+            java.util.logging.Logger.getLogger(jsonstat2qb.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
         }
     }
 
-    private InputStream open(String datasetUrl) {
+    public static Model jsonstat2qb(String url) throws IOException {
+        InputStream input = open(url);
+        Stat stat = new JacksonStatParser().parse(input);
+
+        // TODO - process multiple datasets?
+        Optional<Dataset> dataset = stat.getDataset(0);
+        Model model = ModelFactory.createDefaultModel();
+        model.setNsPrefix("json-stat", JSONSTAT.getURI());
+        model.setNsPrefix("qb", DataCube.getURI());
+        model.setNsPrefix("xsd", XSD.getURI());
+
+        int index = 0;
+        for (Dataset ds : dataset) {
+            String datasetId = "ds-" + index;
+            if (log.isDebugEnabled()) {
+                System.out.println("ds.size() = " + ds.size());
+                List<Dimension> dimensions = ds.getDimensions();
+                for (Dimension dimension : dimensions) {
+                    System.out.println("dimension label: " + dimension.getLabel().get());
+                }
+            }
+            model.setNsPrefix(datasetId, baseUri + datasetId + "/");
+            processResults(model, dataset.get(), baseUri + datasetId + "/");
+            index++;
+
+        }
+        return model;
+    }
+
+    private static InputStream open(String datasetUrl) {
         InputStream in = FileManager.get().open(datasetUrl);
         if (in == null) {
             throw new NotFoundException(datasetUrl);
@@ -207,7 +231,7 @@ public class jsonstat2qb extends CmdGeneral {
         }
     }
 
-    private void processResults(Model model, Dataset dataset, String datasetNameSpace) {
+    private static void processResults(Model model, Dataset dataset, String datasetNameSpace) {
 
         // TODO keep separate tables for observations and measure
         // TODO order obs obs obs measure
@@ -216,7 +240,6 @@ public class jsonstat2qb extends CmdGeneral {
         // TODO add base prefix
         // TODO allow user input
         // Used in DS, DSD, dimensions etc.
-     
         // DataSet
         Resource ds = model.createResource(datasetNameSpace);
         ds.addProperty(RDF.type, DataCube.DataSet);
@@ -237,7 +260,7 @@ public class jsonstat2qb extends CmdGeneral {
         // Dimension order
         int index = 1;
         for (Dimension dm : dimensions) {
-            Resource comSpec = model.createResource(datasetNameSpace  + "components/" + Helpers.makeSafeName(dm.getId()));
+            Resource comSpec = model.createResource(datasetNameSpace + "components/" + Helpers.makeSafeName(dm.getId()));
             comSpec.addProperty(RDF.type, DataCube.ComponentSpecification);
             comSpec.addProperty(DataCube.order, model.createTypedLiteral(index));
 
@@ -246,10 +269,8 @@ public class jsonstat2qb extends CmdGeneral {
             // TODO try to guess type / hierarchy from JSON
             // TODO codeList? <http://data.cso.ie/census-2011/property/have-a-personal-computer> <http://purl.org/linked-data/cube#codeList> <http://data.cso.ie/census-2011/classification/have-a-personal-computer> .
             //Resource dim = model.createResource(datasetNameSpace+ "components/" + Helpers.makeSafeName(dm.getId()));
-          
-               // dim.addProperty(DataCube.measure, comSpec);
-           
-            comSpec.addProperty(DataCube.dimension, model.createResource(datasetNameSpace  + Helpers.makeSafeName(dm.getId())));
+            // dim.addProperty(DataCube.measure, comSpec);
+            comSpec.addProperty(DataCube.dimension, model.createResource(datasetNameSpace + Helpers.makeSafeName(dm.getId())));
             comSpec.addProperty(RDF.type, RDF.Property);
             comSpec.addProperty(RDF.type, SKOS.Concept);
             comSpec.addProperty(RDFS.range, DataCube.ComponentProperty);
@@ -259,20 +280,18 @@ public class jsonstat2qb extends CmdGeneral {
             // Add to dsd
             dsd.addProperty(DataCube.component, comSpec);
 
-    
             index++;
         }
 
-        
-         Resource comSpec = model.createResource(datasetNameSpace  + "components/value");
-         comSpec.addProperty(RDF.type, DataCube.ComponentSpecification);
-         comSpec.addProperty(DataCube.order, model.createTypedLiteral(index));
-         comSpec.addProperty(DataCube.measure, model.createResource(datasetNameSpace  + "value"));
-         comSpec.addProperty(RDF.type, RDF.Property);
-         comSpec.addProperty(RDF.type, SKOS.Concept);
-         comSpec.addProperty(RDFS.range, DataCube.ComponentProperty);
-         comSpec.addProperty(RDFS.range, DataCube.DimensionProperty);
-         comSpec.addProperty(RDFS.label, model.createLiteral("Value"));
+        Resource comSpec = model.createResource(datasetNameSpace + "components/value");
+        comSpec.addProperty(RDF.type, DataCube.ComponentSpecification);
+        comSpec.addProperty(DataCube.order, model.createTypedLiteral(index));
+        comSpec.addProperty(DataCube.measure, model.createResource(datasetNameSpace + "value"));
+        comSpec.addProperty(RDF.type, RDF.Property);
+        comSpec.addProperty(RDF.type, SKOS.Concept);
+        comSpec.addProperty(RDFS.range, DataCube.ComponentProperty);
+        comSpec.addProperty(RDFS.range, DataCube.DimensionProperty);
+        comSpec.addProperty(RDFS.label, model.createLiteral("Value"));
         dsd.addProperty(DataCube.component, comSpec);
 
         int valueIndex = 0;
@@ -292,7 +311,6 @@ public class jsonstat2qb extends CmdGeneral {
             }
 
         }
-
 
         // Cartesian product for the dimensions and measures
         LinkedHashMap<String, List<String>> dataList = new LinkedHashMap<String, List<String>>();;
@@ -346,23 +364,23 @@ public class jsonstat2qb extends CmdGeneral {
             }
 
             // generate unique Observation URI
-            String obsURI =  datasetNameSpace + "observation-" + count;
+            String obsURI = datasetNameSpace + "observation-" + count;
 
-           // Add Observations
+            // Add Observations
             Resource obs = model.createResource(obsURI);
             obs.addProperty(RDF.type, DataCube.Observation);
             obs.addProperty(DataCube.dataSet, ds);
             int k = 0;
-            for (k = 0; k < combination.length ; k++) {
+            for (k = 0; k < combination.length; k++) {
                 String dimUri = datasetNameSpace + Helpers.makeSafeName(combinations[0][k]);
-                obs.addProperty(model.createProperty(dimUri), model.createResource(datasetNameSpace+"v/" + Helpers.makeSafeName(combination[k])));
-            }     
+                obs.addProperty(model.createProperty(dimUri), model.createResource(datasetNameSpace + "v/" + Helpers.makeSafeName(combination[k])));
+            }
             // TODO measure type as parameter
             try {
-                obs.addProperty(model.createProperty( datasetNameSpace  + "value"), model.createTypedLiteral(Double.parseDouble(dataset.getValue(count - 1).toString())));
+                obs.addProperty(model.createProperty(datasetNameSpace + "value"), model.createTypedLiteral(Double.parseDouble(dataset.getValue(count - 1).toString())));
             } catch (Exception e) {
                 //missing value
-                obs.addProperty(model.createProperty( datasetNameSpace  + "value"), model.createTypedLiteral(0.0));
+                obs.addProperty(model.createProperty(datasetNameSpace + "value"), model.createTypedLiteral(0.0));
             }
             obs.addProperty(DataCube.dataSet, XSD.integer);
             count++;
