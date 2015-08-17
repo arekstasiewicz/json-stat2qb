@@ -177,6 +177,9 @@ public class jsonstat2qb extends CmdGeneral {
         }
     }
 
+    public static void setBaseUri(String uri){
+        baseUri  = uri;
+    }
     public static Model jsonstat2qb(String url) throws IOException {
         InputStream input = open(url);
         Stat stat = new JacksonStatParser().parse(input);
@@ -248,6 +251,7 @@ public class jsonstat2qb extends CmdGeneral {
         // Data Structure Definition
         Resource dsd = model.createResource(datasetNameSpace + "structure");
         dsd.addProperty(RDF.type, DataCube.DataStructureDefinition);
+        ds.addProperty(DataCube.structure, dsd);
 
         // Define dimensions
         List<Dimension> dimensions = dataset.getDimensions();
@@ -382,7 +386,7 @@ public class jsonstat2qb extends CmdGeneral {
                 //missing value
                 obs.addProperty(model.createProperty(datasetNameSpace + "value"), model.createTypedLiteral(0.0));
             }
-            obs.addProperty(DataCube.dataSet, XSD.integer);
+            //obs.addProperty(DataCube.dataSet, XSD.integer);
             count++;
         }
 
