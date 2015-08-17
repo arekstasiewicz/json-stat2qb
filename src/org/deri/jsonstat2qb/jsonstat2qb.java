@@ -355,13 +355,13 @@ public class jsonstat2qb extends CmdGeneral {
             }
         }
 
-        int count = 0;
+        int count = 1;
 
         String[] header = null;
 
         // Observations
         for (String[] combination : combinations) {
-            count++;
+  
             if (header == null) {
                 header = combination;
                 continue;
