@@ -177,9 +177,18 @@ public class jsonstat2qb extends CmdGeneral {
         }
     }
 
+    public void setDatasetUrl(String url){
+    	datasetUrl  = url;
+    }
+
     public static void setBaseUri(String uri){
         baseUri  = uri;
     }
+
+    public void setEncoding(String enc){
+        encoding = enc;
+    }
+
     public static Model jsonstat2qb(String url) throws IOException {
         InputStream input = open(url);
         Stat stat = new JacksonStatParser().parse(input);
