@@ -70,7 +70,7 @@ public class jsonstat2qb extends CmdGeneral {
     }
 
     private String datasetUrl = null;
-    static private String baseUri = null;
+    private String baseUri = null;
     private String encoding = null;
     private boolean writeNTriples = false;
     private boolean validateCube = false;
@@ -181,7 +181,7 @@ public class jsonstat2qb extends CmdGeneral {
     	datasetUrl  = url;
     }
 
-    public static void setBaseUri(String uri){
+    public void setBaseUri(String uri){
         baseUri  = uri;
     }
 
@@ -189,7 +189,7 @@ public class jsonstat2qb extends CmdGeneral {
         encoding = enc;
     }
 
-    public static Model jsonstat2qb(String url) throws IOException {
+    public Model jsonstat2qb(String url) throws IOException {
         InputStream input = open(url);
         Stat stat = new JacksonStatParser().parse(input);
 
