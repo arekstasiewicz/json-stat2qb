@@ -51,8 +51,8 @@ public class jsonstat2qb extends CmdGeneral {
     public static final String BUILD_DATE;
 
     static {
-        String version = "1.0";
-        String date = "30/03/2015";
+        String version = "0.5";
+        String date = "19/08/2015";
         try {
             URL res = jsonstat2qb.class.getResource(jsonstat2qb.class.getSimpleName() + ".class");
             Manifest manifest = ((JarURLConnection) res.openConnection()).getManifest();
