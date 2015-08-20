@@ -51,8 +51,8 @@ public class jsonstat2qb extends CmdGeneral {
     public static final String BUILD_DATE;
 
     static {
-        String version = "1.0";
-        String date = "30/03/2015";
+        String version = "0.5";
+        String date = "19/08/2015";
         try {
             URL res = jsonstat2qb.class.getResource(jsonstat2qb.class.getSimpleName() + ".class");
             Manifest manifest = ((JarURLConnection) res.openConnection()).getManifest();
@@ -70,7 +70,7 @@ public class jsonstat2qb extends CmdGeneral {
     }
 
     private String datasetUrl = null;
-    static private String baseUri = null;
+    private String baseUri = null;
     private String encoding = null;
     private boolean writeNTriples = false;
     private boolean validateCube = false;
@@ -177,10 +177,19 @@ public class jsonstat2qb extends CmdGeneral {
         }
     }
 
-    public static void setBaseUri(String uri){
+    public void setDatasetUrl(String url){
+    	datasetUrl  = url;
+    }
+
+    public void setBaseUri(String uri){
         baseUri  = uri;
     }
-    public static Model jsonstat2qb(String url) throws IOException {
+
+    public void setEncoding(String enc){
+        encoding = enc;
+    }
+
+    public Model jsonstat2qb(String url) throws IOException {
         InputStream input = open(url);
         Stat stat = new JacksonStatParser().parse(input);
 
