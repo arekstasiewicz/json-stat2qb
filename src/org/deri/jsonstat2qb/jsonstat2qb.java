@@ -192,8 +192,11 @@ public class jsonstat2qb extends CmdGeneral {
         model.setNsPrefix("xsd", XSD.getURI());
 
         int index = 0;
+        String[] parts = url.split("/");
+        String filename = parts[parts.length - 1];
+        model.setNsPrefix("b", baseUri );
         for (Dataset ds : dataset) {
-            String datasetId = "ds-" + index;
+            String datasetId = filename +"-"+ index;
             if (log.isDebugEnabled()) {
                 System.out.println("ds.size() = " + ds.size());
                 List<Dimension> dimensions = ds.getDimensions();
@@ -264,7 +267,7 @@ public class jsonstat2qb extends CmdGeneral {
         // Dimension order
         int index = 1;
         for (Dimension dm : dimensions) {
-            Resource comSpec = model.createResource(datasetNameSpace + "components/" + Helpers.makeSafeName(dm.getId()));
+            Resource comSpec = model.createResource(baseUri + "components/" + Helpers.makeSafeName(dm.getId()));
             comSpec.addProperty(RDF.type, DataCube.ComponentSpecification);
             comSpec.addProperty(DataCube.order, model.createTypedLiteral(index));
 
@@ -274,7 +277,7 @@ public class jsonstat2qb extends CmdGeneral {
             // TODO codeList? <http://data.cso.ie/census-2011/property/have-a-personal-computer> <http://purl.org/linked-data/cube#codeList> <http://data.cso.ie/census-2011/classification/have-a-personal-computer> .
             //Resource dim = model.createResource(datasetNameSpace+ "components/" + Helpers.makeSafeName(dm.getId()));
             // dim.addProperty(DataCube.measure, comSpec);
-            comSpec.addProperty(DataCube.dimension, model.createResource(datasetNameSpace + Helpers.makeSafeName(dm.getId())));
+            comSpec.addProperty(DataCube.dimension, model.createResource(baseUri + Helpers.makeSafeName(dm.getId())));
             comSpec.addProperty(RDF.type, RDF.Property);
             comSpec.addProperty(RDF.type, SKOS.Concept);
             comSpec.addProperty(RDFS.range, DataCube.ComponentProperty);
@@ -287,10 +290,10 @@ public class jsonstat2qb extends CmdGeneral {
             index++;
         }
 
-        Resource comSpec = model.createResource(datasetNameSpace + "components/value");
+        Resource comSpec = model.createResource(baseUri + "components/value");
         comSpec.addProperty(RDF.type, DataCube.ComponentSpecification);
         comSpec.addProperty(DataCube.order, model.createTypedLiteral(index));
-        comSpec.addProperty(DataCube.measure, model.createResource(datasetNameSpace + "value"));
+        comSpec.addProperty(DataCube.measure, model.createResource(baseUri + "value"));
         comSpec.addProperty(RDF.type, RDF.Property);
         comSpec.addProperty(RDF.type, SKOS.Concept);
         comSpec.addProperty(RDFS.range, DataCube.ComponentProperty);
@@ -323,7 +326,7 @@ public class jsonstat2qb extends CmdGeneral {
             Category cat = dm.getCategory();
             List<String> list = new ArrayList<String>();
             for (String value : cat) {
-                list.add(Helpers.makeSafeName(cat.getLabel(value).get().toString()));
+                list.add(cat.getLabel(value).get().toString());
             }
             dataList.put(dm.getId(), list);
         }
@@ -376,15 +379,18 @@ public class jsonstat2qb extends CmdGeneral {
             obs.addProperty(DataCube.dataSet, ds);
             int k = 0;
             for (k = 0; k < combination.length; k++) {
-                String dimUri = datasetNameSpace + Helpers.makeSafeName(combinations[0][k]);
-                obs.addProperty(model.createProperty(dimUri), model.createResource(datasetNameSpace + "v/" + Helpers.makeSafeName(combination[k])));
+                String dimUri = baseUri + Helpers.makeSafeName(combinations[0][k]);
+                Resource res = model.createResource(baseUri + "v/" + Helpers.makeSafeName(combination[k]));
+                res.addProperty(RDF.type, SKOS.Concept);
+                res.addProperty(RDFS.label, combination[k]);           
+                obs.addProperty(model.createProperty(dimUri), res);
             }
             // TODO measure type as parameter
             try {
-                obs.addProperty(model.createProperty(datasetNameSpace + "value"), model.createTypedLiteral(Double.parseDouble(dataset.getValue(count - 1).toString())));
+                obs.addProperty(model.createProperty(baseUri + "value"), model.createTypedLiteral(Double.parseDouble(dataset.getValue(count - 1).toString())));
             } catch (Exception e) {
                 //missing value
-                obs.addProperty(model.createProperty(datasetNameSpace + "value"), model.createTypedLiteral(0.0));
+                obs.addProperty(model.createProperty(baseUri + "value"), model.createTypedLiteral(0.0));
             }
             //obs.addProperty(DataCube.dataSet, XSD.integer);
             count++;
